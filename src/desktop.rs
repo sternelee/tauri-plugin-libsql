@@ -1,0 +1,179 @@
+use std::collections::HashMap;
+use std::sync::Arc;
+
+use libsql::{Builder, Connection, Database};
+use serde::de::DeserializeOwned;
+use tauri::{plugin::PluginApi, AppHandle, Runtime};
+use tokio::sync::Mutex;
+use uuid::Uuid;
+
+use crate::error::{Error, Result};
+use crate::models::*;
+
+pub fn init<R: Runtime, C: DeserializeOwned>(
+  app: &AppHandle<R>,
+  _api: PluginApi<R, C>,
+) -> crate::Result<Libsql<R>> {
+  Ok(Libsql {
+    app: app.clone(),
+    connections: Arc::new(Mutex::new(HashMap::new())),
+    databases: Arc::new(Mutex::new(HashMap::new())),
+  })
+}
+
+type ConnectionsMap = HashMap<String, Connection>;
+type DatabasesMap = HashMap<String, Database>;
+
+/// Access to the libsql APIs.
+pub struct Libsql<R: Runtime> {
+  app: AppHandle<R>,
+  connections: Arc<Mutex<ConnectionsMap>>,
+  databases: Arc<Mutex<DatabasesMap>>,
+}
+
+impl<R: Runtime> Libsql<R> {
+  pub fn ping(&self, payload: PingRequest) -> crate::Result<PingResponse> {
+    Ok(PingResponse {
+      value: payload.value,
+    })
+  }
+
+  pub async fn connect(&self, options: ConnectOptions) -> Result<String> {
+    let db = if let Some(local_path) = options.local_path {
+      if !options.url.is_empty() {
+        // Create a remote replica
+        if let Some(auth_token) = options.auth_token {
+          Builder::new_remote_replica(&local_path, options.url, auth_token).build().await?
+        } else {
+          return Err(Error::ValueConversion("Missing auth token for remote replica".into()));
+        }
+      } else {
+        // Create a local database
+        Builder::new_local(&local_path).build().await?
+      }
+    } else if !options.url.is_empty() {
+      // Create a remote-only connection
+      if let Some(auth_token) = options.auth_token {
+        Builder::new_remote(options.url, auth_token).build().await?
+      } else {
+        return Err(Error::ValueConversion("Missing auth token for remote connection".into()));
+      }
+    } else {
+      return Err(Error::ValueConversion("Either url or local_path must be provided".into()));
+    };
+
+    let conn = db.connect()?;
+    let id = Uuid::new_v4().to_string();
+
+    {
+      let mut databases = self.databases.lock().await;
+      databases.insert(id.clone(), db);
+    }
+
+    {
+      let mut connections = self.connections.lock().await;
+      connections.insert(id.clone(), conn);
+    }
+
+    Ok(id)
+  }
+
+  pub async fn execute(&self, options: ExecuteOptions) -> Result<ExecuteResult> {
+    let connection = {
+      let connections = self.connections.lock().await;
+      connections.get(&options.connection_id).cloned().ok_or_else(|| Error::ConnectionNotFound(options.connection_id.clone()))?
+    };
+
+    let params = options.params.unwrap_or_default();
+    let params_vec: Result<Vec<libsql::Value>> = params.into_iter().enumerate().map(|(i, p)| {
+      p.try_into().map_err(|_| Error::InvalidParameter(i, format!("Failed to convert parameter")))
+    }).collect();
+    let params_vec = params_vec?;
+
+    let mut statement = connection.prepare(&options.sql).await?;
+    let rows_affected = statement.execute(params_vec).await?;
+    
+    // Get the last insert rowid through a separate query
+    let last_insert_rowid = if options.sql.to_lowercase().contains("insert") {
+      let mut rows = connection.query("SELECT last_insert_rowid()", Vec::<libsql::Value>::new()).await?;
+      if let Some(row) = rows.next().await? {
+        row.get::<i64>(0).ok()
+      } else {
+        None
+      }
+    } else {
+      None
+    };
+
+    Ok(ExecuteResult {
+      rows_affected: rows_affected as u64,
+      last_insert_rowid,
+    })
+  }
+
+  pub async fn query(&self, options: QueryOptions) -> Result<QueryResult> {
+    let connection = {
+      let connections = self.connections.lock().await;
+      connections.get(&options.connection_id).cloned().ok_or_else(|| Error::ConnectionNotFound(options.connection_id.clone()))?
+    };
+
+    let params = options.params.unwrap_or_default();
+    let params_vec: Result<Vec<libsql::Value>> = params.into_iter().enumerate().map(|(i, p)| {
+      p.try_into().map_err(|_| Error::InvalidParameter(i, format!("Failed to convert parameter")))
+    }).collect();
+    let params_vec = params_vec?;
+
+    let mut rows = connection.query(&options.sql, params_vec).await?;
+    let mut result_rows = Vec::new();
+    let mut columns = Vec::new();
+
+    if let Some(row) = rows.next().await? {
+      // Get column names from the first row
+      columns = (0..row.column_count()).filter_map(|i| row.column_name(i)).map(|s| s.to_string()).collect();
+      
+      // Process first row
+      let values = (0..row.column_count()).map(|i| row.get_value(i).map(Value::from).unwrap_or(Value::Null)).collect();
+      result_rows.push(values);
+      
+      // Process remaining rows
+      while let Some(row) = rows.next().await? {
+        let values = (0..row.column_count()).map(|i| row.get_value(i).map(Value::from).unwrap_or(Value::Null)).collect();
+        result_rows.push(values);
+      }
+    }
+
+    Ok(QueryResult {
+      columns,
+      rows: result_rows,
+    })
+  }
+
+  pub async fn sync(&self, options: SyncOptions) -> Result<()> {
+    // Get a connection to execute the sync command
+    let connection = {
+      let connections = self.connections.lock().await;
+      connections.get(&options.connection_id)
+        .cloned()
+        .ok_or_else(|| Error::ConnectionNotFound(options.connection_id.clone()))?
+    };
+    
+    // Execute the libsql_sync() function via SQL
+    let _ = connection.execute("SELECT libsql_sync()", Vec::<libsql::Value>::new()).await?;
+    
+    Ok(())
+  }
+
+  pub async fn close(&self, options: CloseOptions) -> Result<()> {
+    {
+      let mut connections = self.connections.lock().await;
+      connections.remove(&options.connection_id);
+    }
+    
+    {
+      let mut databases = self.databases.lock().await;
+      databases.remove(&options.connection_id);
+    }
+    
+    Ok(())
+  }
+}
