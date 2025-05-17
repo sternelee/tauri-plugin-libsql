@@ -1,6 +1,6 @@
 [package]
 name = "tauri-plugin-libsql"
-version = "0.1.0"
+version = "0.2.0"
 authors = [ "Tauri Community" ]
 description = "A Tauri plugin for SQLite database access using libSQL, providing local and remote synchronization capabilities."
 edition = "2021"
