@@ -1,8 +1,8 @@
-use tauri::{AppHandle, command, Runtime};
+use tauri::{command, AppHandle, Runtime};
 
 use crate::models::*;
-use crate::Result;
 use crate::LibsqlExt;
+use crate::Result;
 
 #[command]
 pub(crate) async fn ping<R: Runtime>(
@@ -38,17 +38,11 @@ pub(crate) async fn query<R: Runtime>(
 }
 
 #[command]
-pub(crate) async fn sync<R: Runtime>(
-    app: AppHandle<R>,
-    options: SyncOptions,
-) -> Result<()> {
+pub(crate) async fn sync<R: Runtime>(app: AppHandle<R>, options: SyncOptions) -> Result<()> {
     app.libsql().sync(options).await
 }
 
 #[command]
-pub(crate) async fn close<R: Runtime>(
-    app: AppHandle<R>,
-    options: CloseOptions,
-) -> Result<()> {
+pub(crate) async fn close<R: Runtime>(app: AppHandle<R>, options: CloseOptions) -> Result<()> {
     app.libsql().close(options).await
 }

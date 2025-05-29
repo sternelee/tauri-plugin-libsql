@@ -23,9 +23,9 @@ internal class PingRequest {
 
 @InvokeArg
 internal class ConnectOptions {
-    lateinit var url: String
+    lateinit var localPath: String
+    var url: String? = null
     var authToken: String? = null
-    var localPath: String? = null
 }
 
 @InvokeArg
@@ -85,23 +85,23 @@ class LibsqlPlugin(private val activity: Activity) : Plugin(activity), Coroutine
     @Command
     fun connect(invoke: Invoke) {
         val options = invoke.parseArgs(ConnectOptions::class.java)
-        
+
         launch {
             try {
                 // 这里应该使用 libSQL Kotlin SDK 创建连接
                 // 由于我们没有实际的 SDK 引用，这里只是模拟实现
-                
+
                 // 创建唯一的连接 ID
                 val connectionId = UUID.randomUUID().toString()
-                
+
                 // 根据选项创建数据库连接
                 // 实际实现会用 libSQL 的 SDK
                 // 例如: val db = LibSQL.createClient(options.url, options.authToken)
-                
+
                 // 存储连接
                 connections[connectionId] = Any() // 模拟数据库连接
                 databases[connectionId] = Any()   // 模拟数据库实例
-                
+
                 // 返回连接 ID
                 val response = JSObject()
                 response.put("0", connectionId)
@@ -115,7 +115,7 @@ class LibsqlPlugin(private val activity: Activity) : Plugin(activity), Coroutine
     @Command
     fun execute(invoke: Invoke) {
         val options = invoke.parseArgs(ExecuteOptions::class.java)
-        
+
         launch {
             try {
                 // 检查连接是否存在
@@ -123,19 +123,19 @@ class LibsqlPlugin(private val activity: Activity) : Plugin(activity), Coroutine
                     invoke.reject("Connection not found", "DATABASE_CONNECTION_NOT_FOUND")
                     return@launch
                 }
-                
+
                 // 获取连接实例
                 // val connection = connections[options.connectionId] as LibSQLConnection
-                
+
                 // 执行 SQL 语句
                 // 将 options.params 转换为 libSQL 参数格式
                 // val result = connection.execute(options.sql, params)
-                
+
                 // 模拟执行结果
                 val result = JSObject()
                 result.put("rowsAffected", 1)
                 result.put("lastInsertRowid", 1)
-                
+
                 invoke.resolve(result)
             } catch (e: Exception) {
                 invoke.reject(e.message ?: "Failed to execute SQL", e.toString())
@@ -146,7 +146,7 @@ class LibsqlPlugin(private val activity: Activity) : Plugin(activity), Coroutine
     @Command
     fun query(invoke: Invoke) {
         val options = invoke.parseArgs(QueryOptions::class.java)
-        
+
         launch {
             try {
                 // 检查连接是否存在
@@ -154,21 +154,21 @@ class LibsqlPlugin(private val activity: Activity) : Plugin(activity), Coroutine
                     invoke.reject("Connection not found", "DATABASE_CONNECTION_NOT_FOUND")
                     return@launch
                 }
-                
+
                 // 获取连接实例
                 // val connection = connections[options.connectionId] as LibSQLConnection
-                
+
                 // 执行查询
                 // val resultSet = connection.query(options.sql, params)
-                
+
                 // 封装结果 (模拟)
                 val result = JSObject()
                 val columns = JSObject.fromJSONArray("[]")
                 val rows = JSObject.fromJSONArray("[]")
-                
+
                 result.put("columns", columns)
                 result.put("rows", rows)
-                
+
                 invoke.resolve(result)
             } catch (e: Exception) {
                 invoke.reject(e.message ?: "Failed to execute query", e.toString())
@@ -179,7 +179,7 @@ class LibsqlPlugin(private val activity: Activity) : Plugin(activity), Coroutine
     @Command
     fun sync(invoke: Invoke) {
         val options = invoke.parseArgs(SyncOptions::class.java)
-        
+
         launch {
             try {
                 // 检查连接是否存在
@@ -187,13 +187,13 @@ class LibsqlPlugin(private val activity: Activity) : Plugin(activity), Coroutine
                     invoke.reject("Connection not found", "DATABASE_CONNECTION_NOT_FOUND")
                     return@launch
                 }
-                
+
                 // 获取数据库实例
                 // val database = databases[options.connectionId] as LibSQLDatabase
-                
+
                 // 同步远程更改
                 // database.sync()
-                
+
                 invoke.resolve()
             } catch (e: Exception) {
                 invoke.reject(e.message ?: "Failed to sync database", e.toString())
@@ -204,17 +204,17 @@ class LibsqlPlugin(private val activity: Activity) : Plugin(activity), Coroutine
     @Command
     fun close(invoke: Invoke) {
         val options = invoke.parseArgs(CloseOptions::class.java)
-        
+
         launch {
             try {
                 // 移除连接
                 connections.remove(options.connectionId)
                 databases.remove(options.connectionId)
-                
+
                 invoke.resolve()
             } catch (e: Exception) {
                 invoke.reject(e.message ?: "Failed to close connection", e.toString())
             }
         }
     }
-} 
+}
