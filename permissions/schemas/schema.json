@@ -307,10 +307,34 @@
           "markdownDescription": "Denies the ping command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-ping`",
+          "description": "Allow the connect command to be used.",
           "type": "string",
-          "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-ping`"
+          "const": "allow-connect",
+          "markdownDescription": "Allow the connect command to be used."
+        },
+        {
+          "description": "Allow the execute command to be used.",
+          "type": "string",
+          "const": "allow-execute",
+          "markdownDescription": "Allow the execute command to be used."
+        },
+        {
+          "description": "Allow the query command to be used.",
+          "type": "string",
+          "const": "allow-query",
+          "markdownDescription": "Allow the query command to be used."
+        },
+        {
+          "description": "Allow the sync command to be used.",
+          "type": "string",
+          "const": "allow-sync",
+          "markdownDescription": "Allow the sync command to be used."
+        },
+        {
+          "description": "Allow the close command to be used.",
+          "type": "string",
+          "const": "allow-close",
+          "markdownDescription": "Allow the close command to be used."
         }
       ]
     }

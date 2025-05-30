@@ -69,7 +69,7 @@ impl<R: Runtime> Libsql<R> {
         Ok(id)
     }
 
-    pub async fn execute(&self, options: ExecuteOptions) -> Result<ExecuteResult> {
+    pub async fn execute(&self, options: ExecuteOptions) -> Result<u64> {
         let connection = {
             let connections = self.connections.lock().await;
             connections
@@ -89,27 +89,9 @@ impl<R: Runtime> Libsql<R> {
             .collect();
         let params_vec = params_vec?;
 
-        let mut statement = connection.prepare(&options.sql).await?;
-        let rows_affected = statement.execute(params_vec).await?;
+        let result = connection.execute(&options.sql, params_vec).await.unwrap();
 
-        // Get the last insert rowid through a separate query
-        let last_insert_rowid = if options.sql.to_lowercase().contains("insert") {
-            let mut rows = connection
-                .query("SELECT last_insert_rowid()", Vec::<libsql::Value>::new())
-                .await?;
-            if let Some(row) = rows.next().await? {
-                row.get::<i64>(0).ok()
-            } else {
-                None
-            }
-        } else {
-            None
-        };
-
-        Ok(ExecuteResult {
-            rows_affected: rows_affected as u64,
-            last_insert_rowid,
-        })
+        Ok(result)
     }
 
     pub async fn query(&self, options: QueryOptions) -> Result<QueryResult> {
@@ -165,19 +147,14 @@ impl<R: Runtime> Libsql<R> {
     }
 
     pub async fn sync(&self, options: SyncOptions) -> Result<()> {
-        // Get a connection to execute the sync command
-        let connection = {
-            let connections = self.connections.lock().await;
-            connections
-                .get(&options.connection_id)
-                .cloned()
-                .ok_or_else(|| Error::ConnectionNotFound(options.connection_id.clone()))?
-        };
+        // Get the database and sync it while holding the lock
+        let databases = self.databases.lock().await;
+        let database = databases
+            .get(&options.connection_id)
+            .ok_or_else(|| Error::ConnectionNotFound(options.connection_id.clone()))?;
 
         // Execute the libsql_sync() function via SQL
-        let _ = connection
-            .execute("SELECT libsql_sync()", Vec::<libsql::Value>::new())
-            .await?;
+        let _ = database.sync().await?;
 
         Ok(())
     }

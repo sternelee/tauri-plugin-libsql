@@ -5,6 +5,11 @@ Default permissions for the plugin
 #### This default permission set includes the following:
 
 - `allow-ping`
+- `allow-connect`
+- `allow-execute`
+- `allow-query`
+- `allow-sync`
+- `allow-close`
 
 ## Permission Table
 
