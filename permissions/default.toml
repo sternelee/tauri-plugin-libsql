@@ -13,4 +13,4 @@ All reading related operations are enabled.
 Also allows to load or close a connection.
 
 """
-permissions = ["allow-close", "allow-connect", "allow-execute", "allow-query", "allow-sync"]
+permissions = ["allow-close", "allow-connect", "allow-query"]

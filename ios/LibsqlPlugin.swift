@@ -8,9 +8,9 @@ struct PingRequest: Decodable {
 }
 
 struct ConnectOptions: Decodable {
-    let url: String
+    let localPath: String
+    let url: String?
     let authToken: String?
-    let localPath: String?
 }
 
 struct ExecuteOptions: Decodable {
@@ -50,14 +50,14 @@ struct Value: Decodable {
 // AnyCodable helper for handling dynamic JSON values
 struct AnyCodable: Codable {
     let value: Any
-    
+
     init(value: Any) {
         self.value = value
     }
-    
+
     init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
-        
+
         if container.decodeNil() {
             self.value = NSNull()
         } else if let bool = try? container.decode(Bool.self) {
@@ -76,10 +76,10 @@ struct AnyCodable: Codable {
             throw DecodingError.dataCorruptedError(in: container, debugDescription: "Cannot decode value")
         }
     }
-    
+
     func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
-        
+
         switch self.value {
         case is NSNull:
             try container.encodeNil()
@@ -105,46 +105,46 @@ class LibsqlPlugin: Plugin {
     // 存储数据库连接和实例
     private var connections: [String: Any] = [:]
     private var databases: [String: Any] = [:]
-    
+
     @objc public func ping(_ invoke: Invoke) throws {
         let request = try invoke.parseArgs(PingRequest.self)
         invoke.resolve(["value": request.value as Any])
     }
-    
+
     @objc public func connect(_ invoke: Invoke) throws {
         let options = try invoke.parseArgs(ConnectOptions.self)
-        
+
         // 在实际实现中，这里应该使用 libSQL Swift 客户端
         // 为简化示例，我们仅模拟实现
-        
+
         // 创建连接 ID
         let connectionId = UUID().uuidString
-        
+
         // 创建一个 DispatchQueue 在后台线程操作数据库
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
-            
+
             // 模拟创建数据库连接
             // 实际实现应该使用 LibSQL 客户端
             // let db = LibSQL.connect(url: options.url, authToken: options.authToken, localPath: options.localPath)
-            
+
             // 存储连接和数据库实例
             self.connections[connectionId] = "connection"  // 模拟连接
             self.databases[connectionId] = "database"      // 模拟数据库
-            
+
             // 返回连接 ID
             DispatchQueue.main.async {
                 invoke.resolve([connectionId])
             }
         }
     }
-    
+
     @objc public func execute(_ invoke: Invoke) throws {
         let options = try invoke.parseArgs(ExecuteOptions.self)
-        
+
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
-            
+
             // 检查连接是否存在
             guard self.connections[options.connectionId] != nil else {
                 DispatchQueue.main.async {
@@ -152,12 +152,12 @@ class LibsqlPlugin: Plugin {
                 }
                 return
             }
-            
+
             // 在实际实现中，获取连接并执行 SQL
             // let connection = self.connections[options.connectionId] as! LibSQLConnection
             // let params = self.convertParams(options.params)
             // let result = try? connection.execute(options.sql, params: params)
-            
+
             // 模拟执行结果
             DispatchQueue.main.async {
                 invoke.resolve([
@@ -167,13 +167,13 @@ class LibsqlPlugin: Plugin {
             }
         }
     }
-    
+
     @objc public func query(_ invoke: Invoke) throws {
         let options = try invoke.parseArgs(QueryOptions.self)
-        
+
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
-            
+
             // 检查连接是否存在
             guard self.connections[options.connectionId] != nil else {
                 DispatchQueue.main.async {
@@ -181,12 +181,12 @@ class LibsqlPlugin: Plugin {
                 }
                 return
             }
-            
+
             // 在实际实现中，获取连接并执行查询
             // let connection = self.connections[options.connectionId] as! LibSQLConnection
             // let params = self.convertParams(options.params)
             // let rows = try? connection.query(options.sql, params: params)
-            
+
             // 模拟查询结果
             DispatchQueue.main.async {
                 invoke.resolve([
@@ -196,13 +196,13 @@ class LibsqlPlugin: Plugin {
             }
         }
     }
-    
+
     @objc public func sync(_ invoke: Invoke) throws {
         let options = try invoke.parseArgs(SyncOptions.self)
-        
+
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
-            
+
             // 检查数据库是否存在
             guard self.databases[options.connectionId] != nil else {
                 DispatchQueue.main.async {
@@ -210,37 +210,37 @@ class LibsqlPlugin: Plugin {
                 }
                 return
             }
-            
+
             // 在实际实现中，获取数据库并同步
             // let database = self.databases[options.connectionId] as! LibSQLDatabase
             // try? database.sync()
-            
+
             DispatchQueue.main.async {
                 invoke.resolve(nil)
             }
         }
     }
-    
+
     @objc public func close(_ invoke: Invoke) throws {
         let options = try invoke.parseArgs(CloseOptions.self)
-        
+
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
-            
+
             // 移除连接和数据库
             self.connections.removeValue(forKey: options.connectionId)
             self.databases.removeValue(forKey: options.connectionId)
-            
+
             DispatchQueue.main.async {
                 invoke.resolve(nil)
             }
         }
     }
-    
+
     // 助手方法：转换参数
     private func convertParams(_ params: [Value]?) -> [Any] {
         guard let params = params else { return [] }
-        
+
         return params.map { param in
             switch param.type {
             case "Null":
@@ -270,4 +270,4 @@ class LibsqlPlugin: Plugin {
             }
         }
     }
-} 
+}
