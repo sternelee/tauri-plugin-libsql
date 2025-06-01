@@ -11,28 +11,3 @@ commands.allow = ["ping"]
 identifier = "deny-ping"
 description = "Denies the ping command without any pre-configured scope."
 commands.deny = ["ping"]
-
-[[permission]]
-identifier = "allow-connect"
-description = "Allow the connect command to be used."
-commands.allow = ["connect"]
-
-[[permission]]
-identifier = "allow-execute"
-description = "Allow the execute command to be used."
-commands.allow = ["execute"]
-
-[[permission]]
-identifier = "allow-query"
-description = "Allow the query command to be used."
-commands.allow = ["query"]
-
-[[permission]]
-identifier = "allow-sync"
-description = "Allow the sync command to be used."
-commands.allow = ["sync"]
-
-[[permission]]
-identifier = "allow-close"
-description = "Allow the close command to be used."
-commands.allow = ["close"]

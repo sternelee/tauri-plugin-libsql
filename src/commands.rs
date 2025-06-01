@@ -22,10 +22,7 @@ pub(crate) async fn connect<R: Runtime>(
 }
 
 #[command]
-pub(crate) async fn execute<R: Runtime>(
-    app: AppHandle<R>,
-    options: ExecuteOptions,
-) -> Result<u64> {
+pub(crate) async fn execute<R: Runtime>(app: AppHandle<R>, options: ExecuteOptions) -> Result<u64> {
     app.libsql().execute(options).await
 }
 
